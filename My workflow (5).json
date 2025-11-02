@@ -1,0 +1,496 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        32
+      ],
+      "id": "546fb5c6-a130-4d39-a6a1-02dc2a2ea9b5",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://github.com/trending",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        64,
+        32
+      ],
+      "id": "408657d5-35ba-4843-965a-b1a549fa0425",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "box",
+              "cssSelector": "div.Box",
+              "returnValue": "html"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4bea081d-7e99-4b09-bea8-a69cd91e8e51",
+      "name": "Extract Box",
+      "type": "n8n-nodes-base.html",
+      "position": [
+        288,
+        32
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "dataPropertyName": "=repositories",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "repository",
+              "cssSelector": "a.Link"
+            },
+            {
+              "key": "language",
+              "cssSelector": "span.d-inline-block"
+            },
+            {
+              "key": "description",
+              "cssSelector": "p"
+            },
+            {
+              "key": "link",
+              "cssSelector": "h2 a",
+              "returnValue": "attribute",
+              "attribute": "href"
+            },
+            {
+              "key": "starts",
+              "cssSelector": "a.Link--muted[href*=\"stargazers\"]"
+            },
+            {
+              "key": "forks",
+              "cssSelector": "a.Link--muted[href*=\"forks\"]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a2a50d5d-3415-49dd-b764-3d1874a2a1f0",
+      "name": "Extract repository data",
+      "type": "n8n-nodes-base.html",
+      "position": [
+        736,
+        32
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "dataPropertyName": "box",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "repositories",
+              "cssSelector": "article.Box-row",
+              "returnValue": "html",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {
+          "trimValues": true,
+          "cleanUpText": true
+        }
+      },
+      "id": "96c36d16-408e-45c9-a39d-694450a21008",
+      "name": "Extract all repositories",
+      "type": "n8n-nodes-base.html",
+      "position": [
+        512,
+        32
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=i want it to be in the below format no extra just  what i have given\nrepo-name: {{ $json.repository }}\nlink: https://github.com{{$json[\"link\"]}}\nstars: {{ $json.starts }}\nforks: {{ $json.forks }}\ndescriptrion: {{ $json.description }}brief this description to one line\nabout it: a detailed explaination of that\nin a paragraph of 5 lines.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        976,
+        32
+      ],
+      "id": "8787cbcd-58dc-42cf-aac3-e7073e313fa3",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        864,
+        240
+      ],
+      "id": "61e0b876-dd85-46e6-a4a1-38fa955ceb14",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "tXWu7hHWLLDBFjRr",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the 'output' text from your AI node into structured JSON\nreturn items.map(item => {\n  const text = item.json.output || \"\";\n\n  // Use regex to extract fields\n  const repoName = text.match(/repo-name:\\s*(.*)/)?.[1]?.trim() || \"\";\n  const link = text.match(/link:\\s*(.*)/)?.[1]?.trim() || \"\";\n  const description = text.match(/description:\\s*(.*)/)?.[1]?.trim() || \"\";\n  const about = text.match(/about it:\\s*([\\s\\S]*)/)?.[1]?.trim() || \"\";\n  \n  // Extract stars and forks\n  const stars = text.match(/stars:\\s*([\\d,]+)/)?.[1]?.replace(/,/g, \"\").trim() || \"0\";\n  const forks = text.match(/forks:\\s*([\\d,]+)/)?.[1]?.replace(/,/g, \"\").trim() || \"0\";\n\n  // Return structured JSON for downstream nodes\n  return {\n    json: {\n      repo_name: repoName,\n      link: link,\n      description: description,\n      about_it: about,\n      stars: parseInt(stars, 10),\n      forks: parseInt(forks, 10)\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        32
+      ],
+      "id": "afffb134-cfd4-4c6a-887f-61e249df7b50",
+      "name": "extract fields"
+    },
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "stars",
+              "order": "descending"
+            },
+            {
+              "fieldName": "forks",
+              "order": "descending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.sort",
+      "typeVersion": 1,
+      "position": [
+        1552,
+        32
+      ],
+      "id": "c0f3d02e-b2d9-489a-a6e3-3fa5fe6030a9",
+      "name": "Sort"
+    },
+    {
+      "parameters": {
+        "maxItems": 5
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1904,
+        192
+      ],
+      "id": "9c5e76db-257a-4b82-88a7-7a64d76cc050",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1btHQDf9M9qM87xNZiWaaTPYmCyIh-aq9WZMXmdbYdnY",
+          "mode": "list",
+          "cachedResultName": "Trending Github Repositories",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1btHQDf9M9qM87xNZiWaaTPYmCyIh-aq9WZMXmdbYdnY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1btHQDf9M9qM87xNZiWaaTPYmCyIh-aq9WZMXmdbYdnY/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "repo_name": "={{ $json.repo_name }}",
+            "link": "={{ $json.link }}",
+            "description": "={{ $json.description }}",
+            "about_it": "={{ $json.about_it }}",
+            "stars": "={{ $json.stars }}",
+            "forks": "={{ $json.forks }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "repo_name",
+              "displayName": "repo_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "link",
+              "displayName": "link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "about_it",
+              "displayName": "about_it",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "stars",
+              "displayName": "stars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "forks",
+              "displayName": "forks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2016,
+        -192
+      ],
+      "id": "29f2e132-5021-4e78-8580-1d790df92782",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DpUeUbGQFpfbpXdj",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// inputData is your sorted list of repos\nconst inputData = items;\nconst topFive = inputData.slice(0, 5);\nconst remaining = inputData.slice(5);\n\nreturn remaining.map(item => ({ json: item.json }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        -192
+      ],
+      "id": "f5fbdce9-e74c-4fca-a853-8da651887ff7",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "chatId": "6354435933",
+        "text": "=📦 Repository: {{ $json.repo_name }}\n🔗 Link: {{ $json.link }}\n🌟 Stars: {{ $json.stars }}\n🍴 Forks: {{ $json.forks }}\n📝 Description: {{ $json.description }}\n💡 About: {{ $json.about_it }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2112,
+        192
+      ],
+      "id": "65ad9166-af18-4ad9-8004-c682b4938797",
+      "name": "Send a text message",
+      "webhookId": "03f0ddfb-e482-4ee6-9fb3-9eaae704d531",
+      "credentials": {
+        "telegramApi": {
+          "id": "00D1MNJulX5YKrni",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Box": {
+      "main": [
+        [
+          {
+            "node": "Extract all repositories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract repository data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract all repositories": {
+      "main": [
+        [
+          {
+            "node": "Extract repository data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Extract Box",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "extract fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extract fields": {
+      "main": [
+        [
+          {
+            "node": "Sort",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "063d1e42-0c1d-4db0-8560-4137b78a779a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9b38212a03c08e224fe1ea1b4e7736e18ba382a2fab471b898a9bc7928d7d8fd"
+  },
+  "id": "fviON0hkLYauTUpg",
+  "tags": []
+}
